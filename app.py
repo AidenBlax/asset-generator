@@ -1,98 +1,63 @@
-import os
-import uuid
-import urllib.parse
+import time
 import requests
+import urllib.parse
 from flask import Flask, render_template, request, jsonify
-from PIL import Image, ImageDraw, ImageFont
-import io
 
 app = Flask(__name__)
 
-OUTPUT_DIR = os.path.join('static', 'outputs')
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# List of free public image generation endpoints for fallback
+PRIMARY_API = "https://image.pollinations.ai/prompt/"
+SECONDARY_API = "https://api.v2.emojis.sh/generate/" # Example fallback API format
 
-PAYMENT_LINK = "https://payhip.com/b/YOUR_LINK"
-
-def add_watermark(image_bytes):
-    """Overlays a clean, high-contrast watermark banner over the preview image."""
-    img = Image.open(io.BytesIO(image_bytes)).convert('RGBA')
-    overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-
-    # Dark translucent banner top bar
-    draw.rectangle([0, 0, img.width, 80], fill=(15, 23, 42, 220))
-
-    try:
-        font = ImageFont.truetype("arial.ttf", 36)
-    except IOError:
-        font = ImageFont.load_default()
-
-    draw.text((20, 20), "PREVIEW ONLY • UNLOCK FULL HD ON PAYHIP", fill=(239, 68, 68, 255), font=font)
-
-    watermarked_img = Image.alpha_composite(img, overlay).convert('RGB')
+def generate_image_with_fallback(prompt):
+    """
+    Tries multiple image endpoints and retries if servers are busy.
+    """
+    encoded_prompt = urllib.parse.quote(prompt)
     
-    img_io = io.BytesIO()
-    watermarked_img.save(img_io, 'PNG')
-    img_io.seek(0)
-    return img_io.getvalue()
-
-@app.route('/')
-def home():
-    return render_template('index.html')
-
-@app.route('/generate', methods=['POST'])
-def generate():
+    # 1. Primary Attempt: Pollinations AI
+    primary_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&nologo=true"
+    for attempt in range(2):  # Try 2 times with a short pause
+        try:
+            response = requests.get(primary_url, timeout=12)
+            if response.status_code == 200:
+                return primary_url
+        except requests.exceptions.RequestException:
+            time.sleep(1)  # Wait 1 sec before retrying primary server
+            
+    # 2. Secondary Fallback Attempt (Lexica / Alternative Engine)
     try:
-        data = request.get_json() or {}
-        title = data.get('title', 'EPIC CONTENT')
-        subtitle = data.get('subtitle', 'Gaming')
+        fallback_url = f"https://lexica.art/api/v1/search?q={encoded_prompt}"
+        res = requests.get(fallback_url, timeout=8)
+        if res.status_code == 200:
+            data = res.json()
+            if data.get("images"):
+                return data["images"][0]["src"]
+    except Exception:
+        pass
 
-        # Refined prompt engineered for high-converting YouTube thumbnails
-        raw_prompt = (
-            f"Professional YouTube thumbnail about {subtitle}, featuring bold text '{title.upper()}', "
-            f"vibrant dramatic cinematic lighting, 8k resolution, trending on Artstation, clean layout"
-        )
-        encoded_prompt = urllib.parse.quote(raw_prompt)
+    # 3. Final Safe Fallback: High-quality placeholder image so the app never breaks
+    placeholder_url = f"https://placehold.co/512x512/2b2b36/ffffff/png?text={urllib.parse.quote('Server Busy - Try Again')}"
+    return placeholder_url
 
-        # Fallback list of models to try if one is busy
-        models = ["flux", "turbo", "deliberate"]
-        image_bytes = None
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+@app.route("/generate", methods=["POST"])
+def generate():
+    data = request.get_json() or {}
+    prompt = data.get("prompt", "").strip()
+    
+    if not prompt:
+        return jsonify({"success": False, "error": "Please enter a prompt"}), 400
+        
+    image_url = generate_image_with_fallback(prompt)
+    
+    return jsonify({
+        "success": True,
+        "image_url": image_url
+    })
 
-        for model in models:
-            seed = uuid.uuid4().int % 100000
-            ai_url = f"https://pollinations.ai/p/{encoded_prompt}?width=1280&height=720&model={model}&seed={seed}&nologo=true"
-            try:
-                res = requests.get(ai_url, headers=headers, timeout=12)
-                if res.status_code == 200 and 'image' in res.headers.get('Content-Type', ''):
-                    image_bytes = res.content
-                    break
-            except requests.exceptions.RequestException:
-                continue
-
-        if image_bytes:
-            watermarked_bytes = add_watermark(image_bytes)
-            filename = f"preview_{uuid.uuid4().hex[:8]}.png"
-            filepath = os.path.join(OUTPUT_DIR, filename)
-
-            with open(filepath, "wb") as f:
-                f.write(watermarked_bytes)
-
-            return jsonify({
-                "success": True,
-                "preview_url": f"/static/outputs/{filename}",
-                "payment_url": PAYMENT_LINK
-            })
-        else:
-            return jsonify({
-                "success": False,
-                "error": "Image servers busy. Please tap generate once more!"
-            }), 500
-
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
