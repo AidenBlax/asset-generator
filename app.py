@@ -6,30 +6,28 @@ from flask import Flask, render_template, request, jsonify
 from PIL import Image, ImageDraw, ImageFont
 import io
 
-# THIS LINE DEFINES 'app' SO RENDER/GUNICORN CAN FIND IT
 app = Flask(__name__)
 
 OUTPUT_DIR = os.path.join('static', 'outputs')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-# Replace with your actual Payhip product link
 PAYMENT_LINK = "https://payhip.com/b/YOUR_LINK"
 
 def add_watermark(image_bytes):
-    """Adds a watermarked banner over the AI image."""
+    """Overlays a clean, high-contrast watermark banner over the preview image."""
     img = Image.open(io.BytesIO(image_bytes)).convert('RGBA')
     overlay = Image.new('RGBA', img.size, (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
 
-    # Dark banner at the top
-    draw.rectangle([0, 0, img.width, 90], fill=(15, 23, 42, 220))
+    # Dark translucent banner top bar
+    draw.rectangle([0, 0, img.width, 80], fill=(15, 23, 42, 220))
 
     try:
-        font = ImageFont.truetype("arial.ttf", 42)
+        font = ImageFont.truetype("arial.ttf", 36)
     except IOError:
         font = ImageFont.load_default()
 
-    draw.text((30, 25), "PREVIEW ONLY • PAY TO UNLOCK CLEAN HD", fill=(239, 68, 68, 255), font=font)
+    draw.text((20, 20), "PREVIEW ONLY • UNLOCK FULL HD ON PAYHIP", fill=(239, 68, 68, 255), font=font)
 
     watermarked_img = Image.alpha_composite(img, overlay).convert('RGB')
     
@@ -45,30 +43,39 @@ def home():
 @app.route('/generate', methods=['POST'])
 def generate():
     try:
-        data = request.get_json()
-        title = data.get('title', 'EPIC MOMENT')
+        data = request.get_json() or {}
+        title = data.get('title', 'EPIC CONTENT')
         subtitle = data.get('subtitle', 'Gaming')
 
-        # Build prompt for Pollinations AI
+        # Refined prompt engineered for high-converting YouTube thumbnails
         raw_prompt = (
-            f"A high quality YouTube thumbnail about {subtitle}, "
-            f"bold text '{title.upper()}', vibrant cinematic lighting, 8k resolution"
+            f"Professional YouTube thumbnail about {subtitle}, featuring bold text '{title.upper()}', "
+            f"vibrant dramatic cinematic lighting, 8k resolution, trending on Artstation, clean layout"
         )
-        
         encoded_prompt = urllib.parse.quote(raw_prompt)
-        ai_url = f"https://pollinations.ai/p/{encoded_prompt}?width=1280&height=720&nologo=true"
 
-        # Headers to prevent request blocking
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(ai_url, headers=headers, timeout=20)
+        # Fallback list of models to try if one is busy
+        models = ["flux", "turbo", "deliberate"]
+        image_bytes = None
 
-        # Verify image format before processing
-        if response.status_code == 200 and 'image' in response.headers.get('Content-Type', ''):
-            watermarked_bytes = add_watermark(response.content)
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
 
+        for model in models:
+            seed = uuid.uuid4().int % 100000
+            ai_url = f"https://pollinations.ai/p/{encoded_prompt}?width=1280&height=720&model={model}&seed={seed}&nologo=true"
+            try:
+                res = requests.get(ai_url, headers=headers, timeout=12)
+                if res.status_code == 200 and 'image' in res.headers.get('Content-Type', ''):
+                    image_bytes = res.content
+                    break
+            except requests.exceptions.RequestException:
+                continue
+
+        if image_bytes:
+            watermarked_bytes = add_watermark(image_bytes)
             filename = f"preview_{uuid.uuid4().hex[:8]}.png"
             filepath = os.path.join(OUTPUT_DIR, filename)
-            
+
             with open(filepath, "wb") as f:
                 f.write(watermarked_bytes)
 
@@ -79,12 +86,12 @@ def generate():
             })
         else:
             return jsonify({
-                "success": False, 
-                "error": "The AI image generator is busy right now. Please click generate again!"
+                "success": False,
+                "error": "Image servers busy. Please tap generate once more!"
             }), 500
 
     except Exception as e:
-        return jsonify({"success": False, "error": "Server timeout. Try again in a few seconds."}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
