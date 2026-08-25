@@ -3,60 +3,90 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PixlForge - AI YouTube Thumbnail Creator</title>
+    <title>PixlForge - AI YouTube Thumbnail Generator</title>
+    <!-- Paystack SDK -->
     <script src="https://js.paystack.co/v1/inline.js"></script>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --accent: #6366f1; --accent-hover: #4f46e5; --text: #f8fafc; }
-        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; }
-        header { display: flex; justify-content: space-between; align-items: center; padding: 20px 5%; background: #0b0f19; border-bottom: 1px solid #334155; }
-        .logo { display: flex; align-items: center; gap: 10px; font-weight: bold; font-size: 1.4rem; color: #fff; }
-        .container { max-width: 1100px; margin: 40px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-        @media(max-width: 768px){ .container { grid-template-columns: 1fr; } }
-        .form-card, .preview-card { background: var(--card); border-radius: 12px; padding: 24px; border: 1px solid #334155; }
-        label { display: block; margin-top: 15px; font-size: 0.9rem; color: #94a3b8; }
-        input, select, textarea { width: 100%; padding: 12px; margin-top: 6px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; box-sizing: border-box; }
-        button { width: 100%; padding: 14px; margin-top: 20px; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        button:hover { background: var(--accent-hover); }
-        .btn-pay { background: #10b981; }
-        .btn-pay:hover { background: #059669; }
-        .preview-box { width: 100%; aspect-ratio: 16/9; background: #090d16; border-radius: 8px; border: 2px dashed #475569; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
+        :root { --bg: #0b0f19; --card: #161e2e; --accent: #6366f1; --accent-hover: #4f46e5; --gold: #ffd700; --text: #f8fafc; }
+        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        
+        /* Header & Logo */
+        header { display: flex; justify-content: space-between; align-items: center; padding: 18px 6%; background: #070a12; border-bottom: 1px solid #1e293b; }
+        .logo { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 1.5rem; color: #fff; tracking: 1px; }
+        .logo-icon { background: linear-gradient(135deg, #6366f1, #a855f7); padding: 8px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+        
+        .badge { background: #1e293b; color: var(--gold); border: 1px solid #334155; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+
+        /* App Container */
+        .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; display: grid; grid-template-columns: 1fr 1.1fr; gap: 30px; }
+        @media(max-width: 900px){ .container { grid-template-columns: 1fr; } }
+
+        .form-card, .preview-card { background: var(--card); border-radius: 16px; padding: 28px; border: 1px solid #1e293b; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        h2, h3 { margin-top: 0; }
+        label { display: block; margin-top: 18px; font-size: 0.88rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+        input, select, textarea { width: 100%; padding: 14px; margin-top: 8px; border-radius: 10px; border: 1px solid #334155; background: #0b0f19; color: #fff; font-size: 0.95rem; box-sizing: border-box; }
+        input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; }
+
+        button { width: 100%; padding: 16px; margin-top: 24px; border-radius: 10px; border: none; background: var(--accent); color: white; font-weight: 700; font-size: 1rem; cursor: pointer; transition: all 0.2s; }
+        button:hover { background: var(--accent-hover); transform: translateY(-2px); }
+        
+        .btn-pay { background: linear-gradient(135deg, #10b981, #059669); font-size: 1.1rem; }
+        .btn-pay:hover { background: linear-gradient(135deg, #059669, #047857); }
+
+        /* Preview Display */
+        .preview-box { width: 100%; aspect-ratio: 16/9; background: #070a12; border-radius: 12px; border: 2px dashed #334155; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; margin-top: 15px; }
         .preview-box img { width: 100%; height: 100%; object-fit: cover; }
-        .faq-section { max-width: 1100px; margin: 50px auto; padding: 0 20px; }
-        .faq-item { background: var(--card); margin-bottom: 15px; padding: 18px; border-radius: 8px; }
-        footer { text-align: center; padding: 30px; border-top: 1px solid #334155; color: #64748b; font-size: 0.9rem; }
-        footer a { color: var(--accent); text-decoration: none; margin: 0 10px; }
+        
+        /* FAQs & Contact */
+        .faq-section { max-width: 1200px; margin: 60px auto; padding: 0 20px; }
+        .faq-title { text-align: center; margin-bottom: 30px; }
+        .faq-item { background: var(--card); margin-bottom: 16px; padding: 22px; border-radius: 12px; border: 1px solid #1e293b; }
+        .faq-item strong { color: var(--gold); font-size: 1.05rem; }
+        .faq-item p { margin: 8px 0 0 0; color: #94a3b8; line-height: 1.6; }
+
+        footer { text-align: center; padding: 40px 20px; border-top: 1px solid #1e293b; color: #64748b; margin-top: 60px; }
+        footer a { color: var(--accent); text-decoration: none; font-weight: 600; margin: 0 8px; }
+        footer a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
 <header>
     <div class="logo">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.5"><rect x="2" y="3" width="20" height="14" rx="2"/><polygon points="10 8 16 11 10 14 10 8"/></svg>
+        <div class="logo-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2"/>
+                <polygon points="10 8 16 11 10 14 10 8"/>
+                <line x1="6" y1="21" x2="18" y2="21"/>
+            </svg>
+        </div>
         PixlForge
     </div>
-    <div><span style="background: #334155; padding: 6px 12px; border-radius: 20px; font-size: 0.85rem;">HD Thumbnail Generator</span></div>
+    <div class="badge">AI Thumbnail Creator ($1.99 HD)</div>
 </header>
 
 <div class="container">
     <!-- Form Side -->
     <div class="form-card">
-        <h3>Design Your Thumbnail</h3>
-        
-        <label>Main Title Text (Bold)</label>
-        <input type="text" id="mainText" placeholder="e.g. I BUILT A $10,000 PC!">
+        <h2>Thumbnail Studio</h2>
+        <p style="color: #94a3b8; font-size: 0.9rem;">Generate viral, high-contrast thumbnails like top creators in seconds.</p>
 
-        <label>Subtitle / Secondary Text</label>
-        <input type="text" id="subtitle" placeholder="e.g. Full Step-by-Step Guide">
+        <label>MAIN TITLE TEXT (BOLD YELLOW OVERLAY)</label>
+        <input type="text" id="mainText" placeholder="e.g. UNREAL 1 TO RANK 2">
 
-        <label>Image Description (What should be in the background?)</label>
-        <textarea id="description" rows="3" placeholder="e.g. Glowing cybernetic gaming room with neon lights and futuristic PC setup"></textarea>
+        <label>SUBTITLE TEXT (WHITE SUB-TEXT)</label>
+        <input type="text" id="subtitle" placeholder="e.g. 200 DAMAGE CLUTCH!">
 
-        <label>Visual Style</label>
+        <label>BACKGROUND DESCRIPTION (WHAT SHOULD AI DRAW?)</label>
+        <textarea id="description" rows="3" placeholder="e.g. High speed train action, glowing blue shield emblem, intense battle royale environment"></textarea>
+
+        <label>THUMBNAIL STYLE</label>
         <select id="style">
-            <option value="Vibrant & Punchy">Vibrant & Punchy (YouTube Popular)</option>
+            <option value="Gaming / Fortnite">Gaming / Fortnite (High Glow & Action)</option>
+            <option value="MrBeast Action">MrBeast Action (High Contrast & Vibrant)</option>
+            <option value="High-Contrast Viral">High-Contrast Viral</option>
             <option value="Dark & Cinematic">Dark & Cinematic</option>
-            <option value="3D Anime Render">3D Render / Gaming</option>
-            <option value="Minimalist Clean">Minimalist Clean</option>
         </select>
 
         <button onclick="generatePreview()">Generate Free Peak Preview</button>
@@ -64,30 +94,40 @@
 
     <!-- Preview Side -->
     <div class="preview-card">
-        <h3>Peak Preview (Watermarked)</h3>
+        <h2>Peak Preview</h2>
+        <p style="color: #94a3b8; font-size: 0.9rem;">Review your watermarked preview before unlocking full 1280x720 HD.</p>
+
         <div class="preview-box" id="previewBox">
-            <span style="color: #64748b;">Fill details and click preview</span>
+            <span style="color: #475569; font-weight: 500;">Your thumbnail preview will appear here</span>
         </div>
 
-        <button class="btn-pay" id="payBtn" style="display:none;" onclick="payWithPaystack()">Unlock HD No-Watermark ($1.99)</button>
+        <button class="btn-pay" id="payBtn" style="display:none;" onclick="payWithPaystack()">Unlock HD Thumbnail No-Watermark ($1.99)</button>
     </div>
 </div>
 
-<!-- FAQ & Contact Details preserved -->
+<!-- FAQ Section preserved -->
 <div class="faq-section">
-    <h2>Frequently Asked Questions</h2>
+    <h2 class="faq-title">Frequently Asked Questions</h2>
+    
     <div class="faq-item">
         <strong>How does the $1.99 HD unlock work?</strong>
-        <p>After viewing your free watermarked peak preview, click unlock to complete your payment securely via Paystack. Your high-resolution 1280x720 thumbnail will download automatically.</p>
+        <p>You can generate unlimited free peak previews. When you find a thumbnail design you love, click "Unlock HD Thumbnail" to pay $1.99 securely via Paystack. Your high-resolution 1280x720 JPEG downloads instantly without watermarks.</p>
     </div>
+
     <div class="faq-item">
-        <strong>What if I spot a bug or have questions?</strong>
-        <p>You can contact our direct support team via email or Instagram below.</p>
+        <strong>What payment methods are supported?</strong>
+        <p>Through Paystack, you can deposit and pay using Debit/Credit cards, Apple Pay, Bank Transfer, or Mobile Money options.</p>
+    </div>
+
+    <div class="faq-item">
+        <strong>What if I encounter a bug or need support?</strong>
+        <p>We are available 24/7. Reach out directly using our contact links below so we can assist you right away!</p>
     </div>
 </div>
 
+<!-- Contact & Footer preserved -->
 <footer>
-    <p>Contact Support & Bug Reports:</p>
+    <p><strong>Contact Support & Bug Reports:</strong></p>
     <p>
         Email: <a href="mailto:support@pixlforge.com">support@pixlforge.com</a> | 
         Instagram: <a href="https://instagram.com" target="_blank">@PixlForgeApp</a>
@@ -100,7 +140,7 @@
 
     async function generatePreview() {
         const btn = event.target;
-        btn.innerText = "Generating AI Background...";
+        btn.innerText = "Building Multi-AI Scene...";
         btn.disabled = true;
 
         currentData = {
@@ -119,10 +159,10 @@
             const blob = await res.blob();
             const imgUrl = URL.createObjectURL(blob);
             
-            document.getElementById('previewBox').innerHTML = `<img src="${imgUrl}" alt="Preview">`;
+            document.getElementById('previewBox').innerHTML = `<img src="${imgUrl}" alt="Thumbnail Preview">`;
             document.getElementById('payBtn').style.display = "block";
         } catch (err) {
-            alert("Generation timeout. Please try again.");
+            alert("Generation took longer than expected. Click again to retry.");
         } finally {
             btn.innerText = "Generate Free Peak Preview";
             btn.disabled = false;
@@ -131,16 +171,16 @@
 
     function payWithPaystack() {
         let handler = PaystackPop.setup({
-            key: 'pk_test_YOUR_PAYSTACK_PUBLIC_KEY', // <-- REPLACE WITH YOUR PAYSTACK PUBLIC KEY
+            key: 'pk_test_YOUR_PAYSTACK_PUBLIC_KEY', // REPLACE WITH YOUR PAYSTACK PUBLIC KEY
             email: 'customer@pixlforge.com',
-            amount: 199 * 100, // $1.99 in cents / equivalent minor currency units
+            amount: 199, // $1.99 USD in cents / Paystack unit
             currency: "USD",
-            ref: ''+Math.floor((Math.random() * 1000000000) + 1),
+            ref: 'PXF_'+Math.floor((Math.random() * 1000000000) + 1),
             onClose: function(){
-                alert('Payment cancelled.');
+                alert('Payment window closed.');
             },
             callback: function(response){
-                alert('Payment complete! Downloading HD Thumbnail...');
+                alert('Payment Successful! Downloading HD Thumbnail...');
                 downloadHD();
             }
         });
