@@ -1,34 +1,35 @@
+import os
 import time
 import requests
 import urllib.parse
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect
+import stripe
 
 app = Flask(__name__)
 
-# List of free public image generation endpoints for fallback
-PRIMARY_API = "https://image.pollinations.ai/prompt/"
-SECONDARY_API = "https://api.v2.emojis.sh/generate/" # Example fallback API format
+# Configure Stripe API Key (Set in Render Environment Variables)
+stripe.api_key = os.environ.get("STRIPE_SECRET_KEY", "sk_test_placeholder")
+DOMAIN = os.environ.get("DOMAIN", "https://pixlforge.com")
 
-def generate_image_with_fallback(prompt):
-    """
-    Tries multiple image endpoints and retries if servers are busy.
-    """
-    encoded_prompt = urllib.parse.quote(prompt)
-    
-    # 1. Primary Attempt: Pollinations AI
-    primary_url = f"https://image.pollinations.ai/prompt/{encoded_prompt}?width=512&height=512&nologo=true"
-    for attempt in range(2):  # Try 2 times with a short pause
-        try:
-            response = requests.get(primary_url, timeout=12)
-            if response.status_code == 200:
-                return primary_url
-        except requests.exceptions.RequestException:
-            time.sleep(1)  # Wait 1 sec before retrying primary server
-            
-    # 2. Secondary Fallback Attempt (Lexica / Alternative Engine)
+
+def fetch_ai_background(visual_description, main_title):
+    """Multi-engine failover system to fetch a high-quality background."""
+    search_query = f"{visual_description} {main_title}".strip()
+    encoded_query = urllib.parse.quote(search_query)
+
+    # Engine 1: Pollinations AI (Generative)
     try:
-        fallback_url = f"https://lexica.art/api/v1/search?q={encoded_prompt}"
-        res = requests.get(fallback_url, timeout=8)
+        url = f"https://image.pollinations.ai/prompt/{encoded_query}%20youtube%20thumbnail%20background%204k%20vibrant%20detailed?width=1280&height=720&nologo=true"
+        res = requests.get(url, timeout=10)
+        if res.status_code == 200:
+            return url
+    except Exception:
+        pass
+
+    # Engine 2: Lexica AI (Search-based AI renders)
+    try:
+        url = f"https://lexica.art/api/v1/search?q={encoded_query}%20thumbnail"
+        res = requests.get(url, timeout=8)
         if res.status_code == 200:
             data = res.json()
             if data.get("images"):
@@ -36,28 +37,74 @@ def generate_image_with_fallback(prompt):
     except Exception:
         pass
 
-    # 3. Final Safe Fallback: High-quality placeholder image so the app never breaks
-    placeholder_url = f"https://placehold.co/512x512/2b2b36/ffffff/png?text={urllib.parse.quote('Server Busy - Try Again')}"
-    return placeholder_url
+    # Engine 3: Unsplash Engine (High Quality Stock Fallback)
+    try:
+        clean_query = urllib.parse.quote(visual_description if visual_description else "abstract background")
+        url = f"https://source.unsplash.com/1280x720/?{clean_query},wallpaper"
+        res = requests.head(url, timeout=5)
+        if res.status_code in [200, 302]:
+            return url
+    except Exception:
+        pass
+
+    # Ultimate Safety Fallback
+    return "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1280&q=80"
+
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
-@app.route("/generate", methods=["POST"])
-def generate():
-    data = request.get_json() or {}
-    prompt = data.get("prompt", "").strip()
-    
-    if not prompt:
-        return jsonify({"success": False, "error": "Please enter a prompt"}), 400
-        
-    image_url = generate_image_with_fallback(prompt)
-    
-    return jsonify({
-        "success": True,
-        "image_url": image_url
-    })
+
+@app.route("/generate-preview", methods=["POST"])
+def generate_preview():
+    try:
+        data = request.get_json() or {}
+        main_text = data.get("main_text", "").strip()
+        subtitle = data.get("subtitle", "").strip()
+        visual_desc = data.get("visual_desc", "").strip()
+
+        if not main_text:
+            return jsonify({"success": False, "error": "Main Title Text is required."}), 400
+
+        # Fetch background image using multi-engine system
+        bg_url = fetch_ai_background(visual_desc, main_text)
+
+        return jsonify({
+            "success": True,
+            "main_text": main_text,
+            "subtitle": subtitle,
+            "bg_url": bg_url
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/create-checkout-session", methods=["POST"])
+def create_checkout_session():
+    """Handles $1.99 payment via Stripe."""
+    try:
+        session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[{
+                "price_data": {
+                    "currency": "usd",
+                    "product_data": {
+                        "name": "PixlForge HD Ultra Thumbnail (1080p)",
+                        "description": "Full HD Unwatermarked Thumbnail Download",
+                    },
+                    "unit_amount": 199,  # $1.99 USD
+                },
+                "quantity": 1,
+            }],
+            mode="payment",
+            success_url=f"{DOMAIN}/?payment=success",
+            cancel_url=f"{DOMAIN}/?payment=cancelled",
+        )
+        return jsonify({"checkout_url": session.url})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
