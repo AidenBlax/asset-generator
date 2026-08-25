@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PixlForge Admin Panel</title>
+    <style>
+        body { background: #090d16; color: #fff; font-family: sans-serif; padding: 40px; text-align: center; }
+        .box { max-width: 400px; margin: 0 auto; background: #131b2e; padding: 30px; border-radius: 12px; border: 1px solid #1e293b; }
+        input { width: 100%; padding: 12px; margin: 10px 0; background: #090d16; border: 1px solid #334155; color: #fff; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background: #6366f1; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>PixlForge Admin Panel</h2>
+        {% if login_required %}
+            {% if error %}<p style="color: #ef4444;">{{ error }}</p>{% endif %}
+            <form method="POST">
+                <input type="password" name="password" placeholder="Admin Password" required>
+                <button type="submit">Login</button>
+            </form>
+        {% else %}
+            <p style="color: #10b981;">✓ Logged in as Admin</p>
+            <hr style="border-color: #1e293b; margin: 20px 0;">
+            <h3>Quick Stats</h3>
+            <p>Pricing: <strong>$1.99 / HD Download</strong></p>
+            <p>Payment Gateway: <strong>Paystack Active</strong></p>
+            <br>
+            <a href="/admin/logout" style="color: #ef4444;">Logout</a>
+        {% endif %}
+    </div>
+</body>
+</html>
